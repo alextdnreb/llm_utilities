@@ -11,7 +11,7 @@ def prepare_tokenizer(tokenizer_path):
     try:
         tokenizer = AutoTokenizer.from_pretrained(tokenizer_path)
     except OSError:
-        tokenizer = AutoTokenizer.from_pretrained(tokenizer_path, use_auth_token=True)
+        tokenizer = AutoTokenizer.from_pretrained(tokenizer_path, token=True)
 
     tokenizer.add_special_tokens({"pad_token": PAD_TOKEN})
     tokenizer.add_special_tokens({"sep_token": SEPARATOR_TOKEN})
@@ -28,7 +28,7 @@ class BaseEncoder(torch.nn.Module, ABC):
         self.model_name = model_name
         self.tokenizer = prepare_tokenizer(model_name)
         self.encoder = (
-            AutoModel.from_pretrained(model_name, use_auth_token=True).to(device).eval()
+            AutoModel.from_pretrained(model_name, token=True).to(device).eval()
         )
         self.device = device
         self.max_input_len = max_input_len
@@ -89,3 +89,37 @@ class StarEncoder(BaseEncoder):
         embedding = pool_and_normalize(outputs.hidden_states[-1], inputs.attention_mask)
 
         return embedding
+
+
+class CodeBERT(BaseEncoder):
+    def __init__(self, device, max_input_len, maximum_token_len):
+        super().__init__(
+            device,
+            max_input_len,
+            maximum_token_len,
+            model_name="microsoft/codebert-base",
+        )
+
+        self.tokenizer = AutoTokenizer.from_pretrained("microsoft/codebert-base")
+
+    def forward(self, input_sentences):
+        inputs = self.tokenizer(
+            [sentence for sentence in input_sentences],
+            padding="longest",
+            max_length=self.maximum_token_len,
+            truncation=True,
+            return_tensors="pt",
+        )
+
+        inputs = set_device(inputs, self.device)
+
+        outputs = self.encoder(inputs["input_ids"], inputs["attention_mask"])
+
+        embedding = outputs["pooler_output"]
+
+        return torch.cat(
+            [
+                torch.nn.functional.normalize(torch.Tensor(el)[None, :])
+                for el in embedding
+            ]
+        )
