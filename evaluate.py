@@ -11,14 +11,10 @@ def evaluate(
     client: MilvusClient,
     dataset: IterableDatasetDict,
     collection_name,
-    normalize=False,
     size=1000,
 ):
     for idx, example in enumerate(tqdm(dataset["test"].shuffle(seed=42))):
-        encoding = model.encode([example["func_code_string"]], show_progress_bar=False)
-
-        if normalize == True:
-            encoding = torch.nn.functional.normalize(encoding, p=2, dim=1)
+        encoding = model.encode([example["func_code_string"]])
 
         data = {
             "text": example["func_code_string"],
@@ -34,15 +30,11 @@ def evaluate(
     ranks = []
     for idx, example in enumerate(tqdm(dataset["test"].shuffle(seed=42))):
 
-        # print(example["func_code_string"])
-
-        query_vector = model.encode(
-            [example["func_documentation_string"]], show_progress_bar=False
-        )
+        query_vector = model.encode([example["func_documentation_string"]])
 
         res = client.search(
             collection_name=collection_name,  # target collection
-            data=query_vector,  # query vectors
+            data=[query_vector],  # query vectors
             limit=1000,  # number of returned entities
             output_fields=["text"],  # specifies fields to be returned
         )
