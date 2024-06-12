@@ -9,7 +9,9 @@ from utils import PAD_TOKEN, SEPARATOR_TOKEN, CLS_TOKEN, MASK_TOKEN
 
 def prepare_tokenizer(tokenizer_path):
     try:
-        tokenizer = AutoTokenizer.from_pretrained(tokenizer_path)
+        tokenizer = AutoTokenizer.from_pretrained(
+            tokenizer_path, token="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"
+        )
     except OSError:
         tokenizer = AutoTokenizer.from_pretrained(tokenizer_path, token=True)
 
@@ -28,7 +30,11 @@ class BaseEncoder(torch.nn.Module, ABC):
         self.model_name = model_name
         self.tokenizer = prepare_tokenizer(model_name)
         self.encoder = (
-            AutoModel.from_pretrained(model_name, token=True).to(device).eval()
+            AutoModel.from_pretrained(
+                model_name, token="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"
+            )
+            .to(device)
+            .eval()
         )
         self.device = device
         self.max_input_len = max_input_len
