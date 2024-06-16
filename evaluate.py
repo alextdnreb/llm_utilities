@@ -34,7 +34,7 @@ def evaluate(
 
         res = client.search(
             collection_name=collection_name,  # target collection
-            data=[query_vector],  # query vectors
+            data=query_vector,  # query vectors
             limit=1000,  # number of returned entities
             output_fields=["text"],  # specifies fields to be returned
         )

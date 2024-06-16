@@ -4,7 +4,7 @@ import torch
 from abc import ABC, abstractmethod
 from utils import PAD_TOKEN, SEPARATOR_TOKEN, CLS_TOKEN, MASK_TOKEN
 
-# https://github.com/bigcode-project/bigcode-encoder/tree/master
+# inspired by https://github.com/bigcode-project/bigcode-encoder/tree/master
 
 
 def prepare_tokenizer(tokenizer_path):
@@ -31,7 +31,9 @@ class BaseEncoder(torch.nn.Module, ABC):
         self.tokenizer = prepare_tokenizer(model_name)
         self.encoder = (
             AutoModel.from_pretrained(
-                model_name, token="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"
+                model_name,
+                token="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",
+                trust_remote_code=True,
             )
             .to(device)
             .eval()
@@ -129,3 +131,31 @@ class CodeBERT(BaseEncoder):
                 for el in embedding
             ]
         )
+
+
+class T5(BaseEncoder):
+    def __init__(self, device, max_input_len, maximum_token_len):
+        super().__init__(
+            device,
+            max_input_len,
+            maximum_token_len,
+            model_name="Salesforce/codet5p-110m-embedding",
+        )
+
+        self.tokenizer = AutoTokenizer.from_pretrained(
+            "Salesforce/codet5p-110m-embedding"
+        )
+
+    def forward(self, input_sentences):
+        inputs = self.tokenizer(
+            [sentence for sentence in input_sentences],
+            padding="longest",
+            max_length=self.maximum_token_len,
+            truncation=True,
+            return_tensors="pt",
+        )
+        inputs = set_device(inputs, self.device)
+
+        outputs = self.encoder(inputs["input_ids"])
+
+        return outputs
