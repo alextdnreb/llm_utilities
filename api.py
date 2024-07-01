@@ -37,10 +37,14 @@ class EmbeddingService(Resource):
     def post(self):
         app.logger.info("Incoming Request for embedding")
         data = request.get_json()
-        input = data["input"]
-        encoding = self.model.encode([input])
+        app.logger.info(data)
+        print(data)
+        code = data["input"]
+        name = data["name"]
 
-        data = {"text": input, "vector": encoding[0]}
+        encoding = self.model.encode([code])
+
+        data = {"text": code, "vector": encoding[0], "name": name}
 
         client.insert(collection_name=self.collection_name, data=data)
 
@@ -55,12 +59,12 @@ class SearchService(Resource):
 
     def post(self):
         data = request.get_json()
-        input = data["input"]
-        query_vector = self.model.encode([input])
+        code = data["input"]
+        query_vector = self.model.encode([code])
         res = client.search(
             collection_name=self.collection_name,
             data=query_vector,
-            limit=100,  # number of returned entities
+            limit=5,  # number of returned entities
             output_fields=["text"],
         )
 
@@ -90,4 +94,4 @@ api.add_resource(
 
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(host="0.0.0.0", debug=True)
