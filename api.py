@@ -1,11 +1,14 @@
-from flask import Flask, request, Response, jsonify
+from flask import Flask, request, Response
 from flask_restful import Resource, Api
+from flask_cors import CORS
+
 from llm import T5, StarEncoder
 from pymilvus import MilvusClient, utility
 import torch
 import json
 
 app = Flask(__name__)
+cors = CORS(app)
 api = Api(app)
 MAX_INPUT_LEN = 10000
 MAX_TOKEN_LEN = 1024
@@ -38,13 +41,23 @@ class EmbeddingService(Resource):
         app.logger.info("Incoming Request for embedding")
         data = request.get_json()
         app.logger.info(data)
-        print(data)
-        code = data["input"]
-        name = data["name"]
+
+        code = data["code"]
+        groupId = data["groupId"]
+        artifactId = data["artifactId"]
+        version = data["version"]
+        packageName = data["packageName"]
 
         encoding = self.model.encode([code])
 
-        data = {"text": code, "vector": encoding[0], "name": name}
+        data = {
+            "text": code,
+            "vector": encoding[0],
+            "groupId": groupId,
+            "artifactId": artifactId,
+            "version": version,
+            "packageName": packageName,
+        }
 
         client.insert(collection_name=self.collection_name, data=data)
 
@@ -68,13 +81,22 @@ class SearchService(Resource):
             output_fields=["text"],
         )
 
-        app.logger.info(res[0])
         return Response(
             response=json.dumps(
                 {
-                    "results": [
-                        result["entity"]["text"] for index, result in enumerate(res[0])
-                    ]
+                    "total": len(res[0]),
+                    "implementations": [
+                        {
+                            "score": index + 1,
+                            "groupId": result["entity"]["groupId"],
+                            "artifactId": result["entity"]["artifactId"],
+                            "version": result["entity"]["version"],
+                            "packageName": result["entity"]["packageName"],
+                            "content": result["entity"]["text"],
+                            "id": "",
+                        }
+                        for index, result in enumerate(res[0])
+                    ],
                 }
             ),
             status=200,
