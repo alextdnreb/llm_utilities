@@ -47,6 +47,7 @@ class EmbeddingService(Resource):
         artifactId = data["artifactId"]
         version = data["version"]
         packageName = data["packageName"]
+        name = data["name"]
 
         encoding = self.model.encode([code])
 
@@ -57,6 +58,7 @@ class EmbeddingService(Resource):
             "artifactId": artifactId,
             "version": version,
             "packageName": packageName,
+            "name": name,
         }
 
         client.insert(collection_name=self.collection_name, data=data)
@@ -78,9 +80,17 @@ class SearchService(Resource):
             collection_name=self.collection_name,
             data=query_vector,
             limit=5,  # number of returned entities
-            output_fields=["text"],
+            output_fields=[
+                "text",
+                "groupId",
+                "artifactId",
+                "version",
+                "packageName",
+                "text",
+                "name",
+            ],
         )
-
+        app.logger.info(res[0][0]["entity"])
         return Response(
             response=json.dumps(
                 {
@@ -91,8 +101,9 @@ class SearchService(Resource):
                             "groupId": result["entity"]["groupId"],
                             "artifactId": result["entity"]["artifactId"],
                             "version": result["entity"]["version"],
-                            "packageName": result["entity"]["packageName"],
+                            "packagename": result["entity"]["packageName"],
                             "content": result["entity"]["text"],
+                            "name": result["entity"]["name"],
                             "id": "",
                         }
                         for index, result in enumerate(res[0])
