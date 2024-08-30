@@ -25,8 +25,7 @@ client = MilvusClient(uri="http://localhost:19530", user="root", password="Milvu
 
 class EmbeddingService(Resource):
     def __init__(self, model, dim, collection_name):
-        app.logger.info("test")
-        super()
+        super(EmbeddingService, self).__init__() 
         self.model = model
 
         if not collection_name in client.list_collections():
@@ -43,51 +42,36 @@ class EmbeddingService(Resource):
         app.logger.info(data)
 
         code = data["code"]
-        groupId = data["groupId"]
-        artifactId = data["artifactId"]
-        version = data["version"]
-        packageName = data["packageName"]
-        name = data["name"]
+        id = data["id"]
 
         encoding = self.model.encode([code])
 
         data = {
-            "text": code,
             "vector": encoding[0],
-            "groupId": groupId,
-            "artifactId": artifactId,
-            "version": version,
-            "packageName": packageName,
-            "name": name,
+            "solr_id": id
         }
 
         client.insert(collection_name=self.collection_name, data=data)
 
-        return Response(status=201)
+        return Response(status=204)
 
 
 class SearchService(Resource):
     def __init__(self, model, collection_name):
-        super()
+        super(SearchService, self).__init__() 
         self.model = model
         self.collection_name = collection_name
 
     def post(self):
         data = request.get_json()
-        code = data["input"]
-        query_vector = self.model.encode([code])
+        query = data["input"]
+        query_vector = self.model.encode([query])
         res = client.search(
             collection_name=self.collection_name,
             data=query_vector,
-            limit=5,  # number of returned entities
+            limit=1000,  # number of returned entities
             output_fields=[
-                "text",
-                "groupId",
-                "artifactId",
-                "version",
-                "packageName",
-                "text",
-                "name",
+                "solr_id"
             ],
         )
         app.logger.info(res[0][0]["entity"])
@@ -98,13 +82,7 @@ class SearchService(Resource):
                     "implementations": [
                         {
                             "score": index + 1,
-                            "groupId": result["entity"]["groupId"],
-                            "artifactId": result["entity"]["artifactId"],
-                            "version": result["entity"]["version"],
-                            "packagename": result["entity"]["packageName"],
-                            "content": result["entity"]["text"],
-                            "name": result["entity"]["name"],
-                            "id": "",
+                            "solr_id": result["entity"]["solr_id"],
                         }
                         for index, result in enumerate(res[0])
                     ],
@@ -117,14 +95,28 @@ class SearchService(Resource):
 api.add_resource(
     EmbeddingService,
     "/embedding",
+    endpoint="embedding_service_app",  
     resource_class_kwargs={"model": model, "dim": 256, "collection_name": "app"},
+)
+api.add_resource(
+    EmbeddingService,
+    "/methodEmbeding",
+    endpoint="embedding_service_methods",  
+    resource_class_kwargs={"model": model, "dim": 256, "collection_name": "methodEmbedding"},
 )
 api.add_resource(
     SearchService,
     "/search",
+    endpoint="search_service_app",  
     resource_class_kwargs={"model": model, "collection_name": "app"},
+)
+api.add_resource(
+    SearchService,
+    "/searchMethods",
+    endpoint="search_service_methods",  
+    resource_class_kwargs={"model": model, "collection_name": "methodEmbedding"},
 )
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", debug=True)
+    app.run(host="0.0.0.0", port=4999, debug=True)
