@@ -14,6 +14,10 @@ source path/to/venv/bin/activate
 pip install -r requirements.txt
 ```
 
+To run `api.py`, a milvus instance is needed. The easiest way to achieve this is to host a local instance that can be installed by following the [docker standalone guide](https://milvus.io/docs/install_standalone-docker.md).
+
+For managing the milvus instance, one might also want to install as explained in their [docs](https://github.com/zilliztech/attu).
+
 # Content
 The main files in this repository are 
 
