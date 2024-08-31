@@ -3,7 +3,7 @@ from flask_restful import Resource, Api
 from flask_cors import CORS
 
 from llm import T5, StarEncoder
-from pymilvus import MilvusClient, utility
+from pymilvus import MilvusClient
 import torch
 import json
 
@@ -43,12 +43,28 @@ class EmbeddingService(Resource):
 
         code = data["code"]
         id = data["id"]
+        name = data["name"]
+
+        #prevent duplicates
+        res = client.query(
+            collection_name=self.collection_name,
+            filter=f'name == "{name}"',
+            limit=1000,  # number of returned entities
+            output_fields=[
+                "solr_id"
+            ],
+        )
+    
+        if len(res) > 0:
+            print("Found duplicate:", res)
+            return Response(status=309) # duplicate found
 
         encoding = self.model.encode([code])
 
         data = {
             "vector": encoding[0],
-            "solr_id": id
+            "solr_id": id,
+            "name": name
         }
 
         client.insert(collection_name=self.collection_name, data=data)
@@ -66,15 +82,18 @@ class SearchService(Resource):
         data = request.get_json()
         query = data["input"]
         query_vector = self.model.encode([query])
+
+        num_results = request.args.get('numResults', default=1000, type=int)
+
         res = client.search(
             collection_name=self.collection_name,
             data=query_vector,
-            limit=1000,  # number of returned entities
+            limit=num_results,  # number of returned entities
             output_fields=[
-                "solr_id"
+                "solr_id",
+                "name"
             ],
         )
-        app.logger.info(res[0][0]["entity"])
         return Response(
             response=json.dumps(
                 {
@@ -83,6 +102,7 @@ class SearchService(Resource):
                         {
                             "score": index + 1,
                             "solr_id": result["entity"]["solr_id"],
+                            "name": result['entity']["name"]
                         }
                         for index, result in enumerate(res[0])
                     ],
@@ -96,11 +116,11 @@ api.add_resource(
     EmbeddingService,
     "/embedding",
     endpoint="embedding_service_app",  
-    resource_class_kwargs={"model": model, "dim": 256, "collection_name": "app"},
+    resource_class_kwargs={"model": model, "dim": 256, "collection_name": "classEmbedding"},
 )
 api.add_resource(
     EmbeddingService,
-    "/methodEmbeding",
+    "/methodEmbedding",
     endpoint="embedding_service_methods",  
     resource_class_kwargs={"model": model, "dim": 256, "collection_name": "methodEmbedding"},
 )
@@ -108,7 +128,7 @@ api.add_resource(
     SearchService,
     "/search",
     endpoint="search_service_app",  
-    resource_class_kwargs={"model": model, "collection_name": "app"},
+    resource_class_kwargs={"model": model, "collection_name": "classEmbedding"},
 )
 api.add_resource(
     SearchService,
