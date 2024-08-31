@@ -83,7 +83,7 @@ class SearchService(Resource):
         query = data["input"]
         query_vector = self.model.encode([query])
 
-        num_results = request.args.get('numResults', default=1000, type=int)
+        num_results = request.args.get('numResults', default=100, type=int)
 
         res = client.search(
             collection_name=self.collection_name,
